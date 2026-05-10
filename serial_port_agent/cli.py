@@ -6,6 +6,8 @@ import threading
 import time
 from typing import Optional
 from .serial_port import SerialPort
+from .llm_client import LLMClient
+from .agent import SerialAgent
 
 
 class SerialCLI:
@@ -17,6 +19,8 @@ class SerialCLI:
         self.local_echo = True
         self._recv_thread = None
         self._running_recv = False
+        self.llm = LLMClient()
+        self.agent: Optional[SerialAgent] = None
 
     def print_ports(self):
         """打印所有可用串口"""
@@ -49,6 +53,7 @@ class SerialCLI:
         if self.serial.open():
             print(f"成功打开串口 {port} @ {baudrate} bps")
             self._start_recv()
+            self.agent = SerialAgent(self.serial, self.llm)
         else:
             print(f"打开串口 {port} 失败")
             self.serial = None
@@ -155,8 +160,9 @@ class SerialCLI:
         print("  sendhex <hex>       - 发送十六进制数据 (如: sendhex 01 02 0A)")
         print("  status              - 查看串口状态")
         print("  echo on|off         - 开启/关闭本地回显")
-        print("  help                - 显示此帮助")
-        print("  quit                - 退出程序")
+        print("  ask <需求>         - AI 理解需求并自动生成 AT 指令执行")
+        print("  help               - 显示此帮助")
+        print("  quit               - 退出程序")
         print()
 
     def cmd_echo(self, args):
@@ -173,6 +179,18 @@ class SerialCLI:
             print("本地回显已关闭")
         else:
             print("用法: echo on|off")
+
+    def cmd_ask(self, args):
+        """AI 理解自然语言，自动生成 AT 指令并执行"""
+        if not args:
+            print("用法: ask <需求描述>")
+            return
+
+        user_request = ' '.join(args)
+        print(f"\n[AI] 正在理解需求: {user_request}")
+
+        result = self.agent.execute(user_request)
+        print(f"\n执行结果: {result}")
 
     def cmd_quit(self, args):
         """退出"""
@@ -220,6 +238,8 @@ class SerialCLI:
                     self.cmd_status(args)
                 elif command == 'echo':
                     self.cmd_echo(args)
+                elif command == 'ask':
+                    self.cmd_ask(args)
                 elif command == 'help':
                     self.cmd_help(args)
                 elif command == 'quit' or command == 'exit':

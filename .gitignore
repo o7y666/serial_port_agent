@@ -3,6 +3,8 @@ __pycache__/
 *.pyo
 *.egg-info/
 .venv/
+.venv
 .idea/
 .DS_Store
 *.bat
+.env
